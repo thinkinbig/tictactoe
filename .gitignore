@@ -1,0 +1,17 @@
+# Ignore build directories
+build/
+
+# Ignore lib directories
+lib/
+
+# Ignore logs
+logs/
+
+# Ignore .vscode
+.vscode/
+
+# Ignore .idea
+.idea/
+
+# Ignore binaries
+bin/
