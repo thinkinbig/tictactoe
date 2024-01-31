@@ -1,7 +1,7 @@
 #ifndef TICTACTOE_H
 #define TICTACTOE_H
 
-#include <stddef.h>
+#include <cstddef>
 #include <array>
 #include <iostream>
 #include <memory>
@@ -15,10 +15,9 @@ const char EMPTY = ' ';
 template <size_t N>
 struct Point
 {
-    const size_t x;
-    const size_t y;
+    size_t x, y;
 
-    Point(const size_t &x, const size_t &y)
+    Point(size_t &x, size_t &y)
     {
         if (x < 0 || x >= N || y < 0 || y >= N)
         {
@@ -28,13 +27,15 @@ struct Point
         this->y = y;
     }
 
-    Point(size_t &&x, size_t &&y) : x(std::move(x)), y(std::move(y))
+    Point(size_t &&x, size_t &&y) : x(x), y(y)
     {
         if (this->x < 0 || this->x >= N || this->y < 0 || this->y >= N)
         {
             throw std::out_of_range("Chess board out of range");
         }
     }
+
+    Point(Point &&other) : x(other.x), y(other.y) {}
 
     ~Point() = default;
 
@@ -65,6 +66,7 @@ class ChessBoard
 {
 public:
     ChessBoard() { initBoard(); };
+
     ~ChessBoard() = default;
 
     string getBoardString()
@@ -90,6 +92,21 @@ public:
             throw std::out_of_range("Chess board out of range");
         }
         board[x][y] = ch;
+    }
+
+    bool isBoardFull()
+    {
+        for (auto i = 0; i < N; i++)
+        {
+            for (auto j = 0; j < N; j++)
+            {
+                if (board[i][j] == EMPTY)
+                {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 
     const array<array<char, N>, N> &getBoard() const noexcept
@@ -121,7 +138,9 @@ class Player
 {
 public:
     Player(const char &ch, const int &playerNumber) : ch(ch), playerNumber(playerNumber) {}
-    Player(const char &&ch, const int &&playerNumber) : ch(std::move(ch)), playerNumber(std::move(playerNumber)) {}
+
+    Player(const char &&ch, const int &&playerNumber) : ch(ch), playerNumber(playerNumber) {}
+
     ~Player() = default;
 
     bool operator==(const Player &player) const noexcept
@@ -161,6 +180,7 @@ class Command
 {
 public:
     virtual bool execute(ChessBoard<N> &board, Player &player) = 0;
+
     virtual ~Command() = default;
 
 protected:
@@ -172,7 +192,9 @@ class RowWinCommand : public Command<N>
 {
 public:
     RowWinCommand(const size_t &x, const size_t &y) : x(x), y(y) {}
-    RowWinCommand(const size_t &&x, const size_t &&y) : x(std::move(x)), y(std::move(y)) {}
+
+    RowWinCommand(const size_t &&x, const size_t &&y) : x(x), y(y) {}
+
     ~RowWinCommand() = default;
 
     bool execute(ChessBoard<N> &board, Player &player) override
@@ -188,8 +210,7 @@ public:
     }
 
 private:
-    size_t x;
-    size_t y;
+    size_t x, y;
 };
 
 template <size_t N>
@@ -197,7 +218,9 @@ class ColWinCommand : public Command<N>
 {
 public:
     ColWinCommand(const size_t &x, const size_t &y) : x(x), y(y) {}
-    ColWinCommand(const size_t &&x, const size_t &&y) : x(std::move(x)), y(std::move(y)) {}
+
+    ColWinCommand(size_t &&x, size_t &&y) : x(x), y(y) {}
+
     ~ColWinCommand() = default;
 
     bool execute(ChessBoard<N> &board, Player &player) override
@@ -213,25 +236,25 @@ public:
     }
 
 private:
-    size_t x;
-    size_t y;
+    size_t x, y;
 };
 
 template <size_t N>
 class DiagonalWinCommand : public Command<N>
 {
 private:
-    size_t x;
-    size_t y;
+    size_t x, y;
 
 public:
     DiagonalWinCommand(const size_t &x, const size_t &y) : x(x), y(y) {}
-    DiagonalWinCommand(const size_t &&x, const size_t &&y) : x(std::move(x)), y(std::move(y)) {}
+
+    DiagonalWinCommand(const size_t &&x, const size_t &&y) : x(x), y(y) {}
+
     ~DiagonalWinCommand() = default;
 
     bool execute(ChessBoard<N> &board, Player &player) override
     {
-        if (isOnMainDiagonal(x, y))
+        if (isOnMainDiagonal())
         {
             for (auto i = 0; i < this->SIZE; i++)
             {
@@ -242,7 +265,7 @@ public:
             }
             return true;
         }
-        else if (isOnAntiDiagonal(x, y))
+        else if (isOnAntiDiagonal())
         {
             for (auto i = 0; i < this->SIZE; i++)
             {
@@ -258,12 +281,12 @@ public:
     }
 
 private:
-    bool isOnMainDiagonal(size_t x, size_t y)
+    inline bool isOnMainDiagonal() const noexcept
     {
         return x == y;
     }
 
-    bool isOnAntiDiagonal(size_t x, size_t y)
+    inline bool isOnAntiDiagonal() const noexcept
     {
         return x + y == N - 1;
     }
@@ -274,14 +297,15 @@ class WinCommandInvoker
 {
 public:
     WinCommandInvoker() = default;
+
     ~WinCommandInvoker()
     {
         commands.clear();
     }
 
-    void addCommand(shared_ptr<Command<N>> command)
+    void addCommand(unique_ptr<Command<N>> command)
     {
-        commands.push_back(command);
+        commands.push_back(std::move(command));
     }
 
     bool execute(ChessBoard<N> &board, Player &player)
@@ -303,7 +327,7 @@ public:
     }
 
 private:
-    vector<shared_ptr<Command<N>>> commands;
+    vector<unique_ptr<Command<N>>> commands;
 };
 
 template <size_t N>
@@ -314,12 +338,13 @@ public:
     {
         for (auto i = 0; i < N; i++)
         {
-            WinCommandInvoker<N>::getInstance().addCommand(make_shared<RowWinCommand<N>>(i, 0));
-            WinCommandInvoker<N>::getInstance().addCommand(make_shared<ColWinCommand<N>>(0, i));
+            WinCommandInvoker<N>::getInstance().addCommand(make_unique<RowWinCommand<N>>(i, 0));
+            WinCommandInvoker<N>::getInstance().addCommand(make_unique<ColWinCommand<N>>(0, i));
         }
-        WinCommandInvoker<N>::getInstance().addCommand(make_shared<DiagonalWinCommand<N>>(0, 0));
-        WinCommandInvoker<N>::getInstance().addCommand(make_shared<DiagonalWinCommand<N>>(N - 1, 0));
+        WinCommandInvoker<N>::getInstance().addCommand(make_unique<DiagonalWinCommand<N>>(0, 0));
+        WinCommandInvoker<N>::getInstance().addCommand(make_unique<DiagonalWinCommand<N>>(N - 1, 0));
     }
+
     ~TicTacToe() = default;
 
     bool play(ChessBoard<N> &board, Player &player, Point<N> &point)
@@ -349,6 +374,7 @@ class IOInterface
 {
 public:
     virtual T read() = 0;
+
     virtual void write(const T &output) = 0;
 };
 
@@ -376,18 +402,41 @@ public:
     }
 };
 
-class StringIOCommand
+#include <iostream>
+#include <unordered_map>
+#include <functional>
+#include <string>
+
+enum class IOEventType
+{
+    StartGame,
+    EndGame,
+    Move,
+    Invalid
+};
+
+class ConsoleService
 {
 public:
-    template <size_t N>
-    std::shared_ptr<Point<N>> readPoint()
+    IOEventType readEvent()
     {
-        auto x = io.read();
-        auto xNum = stoi(x);
-
-        auto y = io.read();
-        auto yNum = stoi(y);
-        return std::make_shared<Point<N>>(xNum, yNum);
+        string input = io.read();
+        if (input == "m")
+        {
+            return IOEventType::Move;
+        }
+        else if (input == "s")
+        {
+            return IOEventType::StartGame;
+        }
+        else if (input == "e" || input == "q")
+        {
+            return IOEventType::EndGame;
+        }
+        else
+        {
+            return IOEventType::Invalid;
+        }
     }
 
     void writeLine(const string &output)
@@ -395,15 +444,61 @@ public:
         io.write(output + "\n");
     }
 
-    static StringIOCommand &getInstance()
+    static ConsoleService &getInstance()
     {
-        static StringIOCommand instance;
+        static ConsoleService instance;
         return instance;
     }
+
+    string readLine()
+    {
+        return io.read();
+    }
+
+    using IOEventCallback = std::function<void()>;
 
 private:
     StringIO io = StringIO::getInstance();
     ChessBoard<8> board;
+    std::unordered_map<IOEventType, IOEventCallback> callbacks;
+
+public:
+    void registerEvent(IOEventType eventType, IOEventCallback callback)
+    {
+        callbacks[eventType] = callback;
+    }
+
+    void unregisterEvent(IOEventType eventType)
+    {
+        callbacks.erase(eventType);
+    }
+
+    void unregisterAllEvents()
+    {
+        callbacks.clear();
+    }
+
+    void triggerEvent(
+        IOEventType eventType, std::function<void()> onError = []() {})
+    {
+        auto it = callbacks.find(eventType);
+        if (it != callbacks.end())
+        {
+            try
+            {
+                it->second(); // 尝试执行对应的事件处理器
+            }
+            catch (const std::exception &e)
+            {
+                writeLine(e.what());
+                onError();
+            }
+        }
+        else
+        {
+            std::cout << "Invalid event triggered." << std::endl;
+        }
+    }
 };
 
 template <size_t N>
@@ -414,38 +509,131 @@ private:
     TicTacToe<N> game;
     Player &player1 = game.getPlayer1();
     Player &player2 = game.getPlayer2();
-    StringIOCommand &io = StringIOCommand::getInstance();
-
-    static TicTacToeGame &getInstance()
-    {
-        static TicTacToeGame instance;
-        return instance;
-    }
+    ConsoleService &io = ConsoleService::getInstance();
+    bool exitGame{};
+    bool gameStarted{};
+    Player *currentPlayer = &player1;
 
 public:
+    TicTacToeGame()
+    {
+        io.registerEvent(IOEventType::Move, [&]()
+                         { move(); });
+        io.registerEvent(IOEventType::Invalid, [&]()
+                         { throw std::invalid_argument("Invalid input"); });
+        io.registerEvent(IOEventType::StartGame, [&]()
+                         { startGame(); });
+        io.registerEvent(IOEventType::EndGame, [&]()
+                         { exit(); });
+    }
+
+    ~TicTacToeGame()
+    {
+        io.unregisterAllEvents();
+    }
+
     void start()
     {
-        bool isWin = false;
-        Player currentPlayer = player1;
-        while (!isWin)
+        io.writeLine("Welcome to TicTacToe!");
+        io.writeLine("Input 'm' to move.");
+        io.writeLine("Input 's' to start game.");
+        io.writeLine("Input 'e' or 'q' to exit game.");
+
+        while (!exitGame)
         {
-            try
-            {
-                io.writeLine(board.getBoardString());
-                io.writeLine("Player " + std::to_string(currentPlayer.getPlayerNumber()) + "'s turn (x, y): ");
-                std::shared_ptr<Point<N>> point = io.readPoint<N>();
-                isWin = game.play(board, currentPlayer, *point);
-                currentPlayer = currentPlayer == player1 ? player2 : player1;
-            }
-            catch (const std::exception &e)
-            {
-                io.writeLine("Error: " + string(e.what()) + "\n");
-            }
+            io.writeLine("Input command:");
+            io.triggerEvent(io.readEvent());
         }
-        currentPlayer = currentPlayer == player1 ? player2 : player1;
+    }
+
+private:
+    void win(Player &player)
+    {
         io.writeLine(board.getBoardString());
-        io.writeLine("Player " + std::to_string(currentPlayer.getPlayerNumber()) + " win!");
+        io.writeLine("Player " + std::to_string(player.getPlayerNumber()) + " win!");
+        gameStarted = false;
+        io.triggerEvent(IOEventType::EndGame);
+    }
+
+    void draw()
+    {
+        io.writeLine(board.getBoardString());
+        io.writeLine("Draw!");
+        gameStarted = false;
+        io.triggerEvent(IOEventType::EndGame);
+    }
+
+    void startGame()
+    {
+        io.writeLine("Game start!");
+        gameStarted = true;
+        io.triggerEvent(io.readEvent());
+    }
+
+    void exit()
+    {
+        io.writeLine("Game exit!");
+        exitGame = true;
+    }
+
+    Point<N> parsePoint(const string &input)
+    {
+        if (input.length() != 3 || input[1] != ',')
+        {
+            io.triggerEvent(IOEventType::Invalid);
+        }
+        size_t x = input[0] - '0';
+        size_t y = input[2] - '0';
+        return Point<N>(x, y);
+    }
+
+    void tryParseAndMove(const std::string &input)
+    {
+        try
+        {
+            Point<N> point = parsePoint(input);
+            makeMove(point);
+        }
+        catch (const std::exception &e)
+        {
+            io.triggerEvent(IOEventType::Invalid, [&]()
+                            { io.writeLine(e.what());
+                            io.writeLine("Please input again:");
+                          io.triggerEvent(IOEventType::Move); });
+        }
+    }
+
+    void makeMove(Point<N> &point)
+    {
+        if (game.play(board, *currentPlayer, point))
+        {
+            win(*currentPlayer);
+        }
+        else if (board.isBoardFull())
+        {
+            draw();
+        }
+        else
+        {
+            currentPlayer = currentPlayer == &player1 ? &player2 : &player1;
+            io.triggerEvent(io.readEvent());
+        }
+    }
+
+    void move()
+    {
+        if (!gameStarted)
+        {
+            io.triggerEvent(IOEventType::Invalid, [&]()
+                            { io.writeLine("Game not started"); });
+            return;
+        }
+        io.writeLine(board.getBoardString());
+        io.writeLine("Player " + std::to_string(currentPlayer->getPlayerNumber()) + " move:");
+        io.writeLine("Input point (x, y):");
+        string input = io.readLine();
+        tryParseAndMove(input);
     }
 };
 
-#endif // CHESSBOARD_H
+#endif // TICTACTOE_H

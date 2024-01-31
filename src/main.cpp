@@ -4,6 +4,7 @@ using namespace std;
 
 int main()
 {
-    TicTacToeGame<8> game;
+    TicTacToeGame<4> game;
     game.start();
+    return 0;
 };
