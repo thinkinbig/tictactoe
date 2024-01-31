@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.12)
 
-project(YourProjectName)  # 项目名称
+project(TicTacToe)  # 项目名称
 
 # 设置C++标准
 set(CMAKE_CXX_STANDARD 14)
